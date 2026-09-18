@@ -8,12 +8,20 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+// Request interceptor — attach Bearer token from localStorage for cross-domain auth
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("access_token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 // Response interceptor — auto-refresh on 401
 api.interceptors.response.use(
   (response) => response.data,
   async (error) => {
     const original = error.config;
-    // Skip auto-refresh and redirect for auth endpoints to prevent reload loops
     const isAuthEndpoint =
       original?.url?.includes("/auth/login") ||
       original?.url?.includes("/auth/me") ||
@@ -25,6 +33,7 @@ api.interceptors.response.use(
         await axios.post(`${API_BASE_URL}/auth/refresh-token`, {}, { withCredentials: true });
         return api(original);
       } catch {
+        localStorage.removeItem("access_token");
         if (window.location.pathname !== "/login" && window.location.pathname !== "/") {
           window.location.href = "/login";
         }
@@ -39,9 +48,21 @@ export default api;
 // --- Typed API helpers ---
 
 export const authAPI = {
-  login: (data) => api.post("/auth/login", data),
+  login: async (data) => {
+    const res = await api.post("/auth/login", data);
+    if (res?.success && res?.data?.access_token) {
+      localStorage.setItem("access_token", res.data.access_token);
+    }
+    return res;
+  },
   register: (data) => api.post("/auth/register", data),
-  logout: () => api.post("/auth/logout"),
+  logout: async () => {
+    try {
+      await api.post("/auth/logout");
+    } finally {
+      localStorage.removeItem("access_token");
+    }
+  },
   me: () => api.get("/auth/me"),
 };
 

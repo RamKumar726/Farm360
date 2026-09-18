@@ -42,11 +42,18 @@ def login(body: LoginRequest, response: Response, db: Session = Depends(get_db))
     access_token = create_access_token({"sub": user.id, "role": user.role.value})
     refresh_token = create_refresh_token({"sub": user.id})
 
-    response.set_cookie("access_token", access_token, httponly=True, samesite="lax", max_age=3600)
-    response.set_cookie("refresh_token", refresh_token, httponly=True, samesite="lax", max_age=604800)
+    # Set cookie with samesite=none and secure=True for cross-origin compatibility
+    response.set_cookie("access_token", access_token, httponly=True, samesite="none", secure=True, max_age=3600)
+    response.set_cookie("refresh_token", refresh_token, httponly=True, samesite="none", secure=True, max_age=604800)
 
     return success(
-        data={"id": user.id, "name": user.name, "email": user.email, "role": user.role.value},
+        data={
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "role": user.role.value,
+            "access_token": access_token,
+        },
         message="Login successful",
     )
 

@@ -6,8 +6,14 @@ from app.auth.jwt import decode_token
 from app.models.users import User, UserRole
 
 
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+security = HTTPBearer(auto_error=False)
+
+
 def get_current_user(
     access_token: Optional[str] = Cookie(default=None),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db),
 ) -> User:
     credentials_exception = HTTPException(
@@ -15,10 +21,12 @@ def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    if not access_token:
+    
+    token = access_token or (credentials.credentials if credentials else None)
+    if not token:
         raise credentials_exception
 
-    payload = decode_token(access_token)
+    payload = decode_token(token)
     if payload is None or payload.get("type") != "access":
         raise credentials_exception
 
