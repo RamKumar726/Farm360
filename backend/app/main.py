@@ -30,10 +30,11 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS — allow frontend origin
+frontend_clean = FRONTEND_URL.rstrip("/")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL, "http://localhost:5173", "http://localhost:3000"],
+    allow_origins=[frontend_clean, f"{frontend_clean}/", "http://localhost:5173", "http://localhost:3000"],
+    allow_origin_regex=r"https://.*\.netlify\.app",
     allow_credentials=True,   # Required for httpOnly cookie auth
     allow_methods=["*"],
     allow_headers=["*"],

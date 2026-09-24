@@ -20,7 +20,9 @@ target_metadata = Base.metadata
 
 # Read DATABASE_URL directly from environment — bypasses configparser
 # which crashes on % characters in URL-encoded passwords (e.g. %40 for @)
-DATABASE_URL = os.environ["DATABASE_URL"]
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/farm360")
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 
 def run_migrations_offline() -> None:

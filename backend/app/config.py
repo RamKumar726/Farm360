@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/farm360")
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 JWT_SECRET: str = os.getenv("JWT_SECRET", "change-me-in-production")
 JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_EXPIRE_MINUTES: int = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))

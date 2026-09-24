@@ -97,7 +97,7 @@ def refresh_token(response: Response, refresh_token: Optional[str] = Cookie(defa
         raise HTTPException(status_code=401, detail="User not found")
 
     new_access = create_access_token({"sub": user.id, "role": user.role.value})
-    response.set_cookie("access_token", new_access, httponly=True, samesite="lax", max_age=3600)
+    response.set_cookie("access_token", new_access, httponly=True, samesite="none", secure=True, max_age=3600)
     return success(message="Token refreshed")
 
 
