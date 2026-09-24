@@ -68,5 +68,4 @@ def auto_assign_farm_employee(work_order: WorkOrder, db: Session) -> Optional[Us
     employee = get_available_employee_for_zone(farm.zone_id, work_date, db)
     if employee:
         work_order.farm_employee_id = employee.id
-        db.commit()
     return employee

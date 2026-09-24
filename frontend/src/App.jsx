@@ -69,6 +69,7 @@ import CustomerInvestments from "./portals/customer/Investments";
 import CustomerLandSale from "./portals/customer/LandSale";
 import CustomerPayments from "./portals/customer/Payments";
 import CustomerServices from "./portals/customer/CustomerServices";
+import WorkPartnerDashboard from "./portals/work-partner/Dashboard";
 
 function AuthGuard({ children }) {
   const { user, isAuthenticated } = useAppStore();
@@ -188,6 +189,7 @@ export default function App() {
           <Route path="/customer/land-sale" element={<AuthGuard><CustomerLandSale /></AuthGuard>} />
           <Route path="/customer/payments" element={<AuthGuard><CustomerPayments /></AuthGuard>} />
           <Route path="/customer/services" element={<AuthGuard><CustomerServices /></AuthGuard>} />
+          <Route path="/work-partner/dashboard" element={<AuthGuard><WorkPartnerDashboard /></AuthGuard>} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/login" replace />} />

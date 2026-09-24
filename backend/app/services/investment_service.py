@@ -18,10 +18,11 @@ def calculate_revenue_share(investment: Investment, db: Session) -> float:
 
 
 def calculate_expected_return(investment: Investment, project: Project) -> float:
-    """Estimate return based on projected total revenue and investor share."""
-    if not project.total_revenue or investment.revenue_share_percentage is None:
+    """Estimate a proportional share of project profit after recorded costs."""
+    project_profit = max(0.0, (project.total_revenue or 0.0) - (project.total_expenses or 0.0) - (project.landowner_settlement or 0.0))
+    if not project_profit or investment.revenue_share_percentage is None:
         return 0.0
-    return round((investment.revenue_share_percentage / 100) * project.total_revenue, 2)
+    return round((investment.revenue_share_percentage / 100) * project_profit, 2)
 
 
 def settle_investment(investment: Investment, actual_return: float, db: Session) -> Investment:
@@ -34,3 +35,14 @@ def settle_investment(investment: Investment, actual_return: float, db: Session)
     db.commit()
     db.refresh(investment)
     return investment
+
+
+def refresh_project_expected_returns(project: Project, db: Session) -> None:
+    """Recompute investor projections whenever project revenue or costs change."""
+    from app.models.investments import InvestmentStatus
+    investments = db.query(Investment).filter(
+        Investment.project_id == project.id,
+        Investment.status == InvestmentStatus.active,
+    ).all()
+    for investment in investments:
+        investment.expected_return = calculate_expected_return(investment, project)

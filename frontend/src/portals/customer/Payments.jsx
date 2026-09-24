@@ -1,69 +1,68 @@
+import { useEffect, useState } from "react";
 import PortalPage from "../../components/PortalPage";
 import { CUSTOMER_NAV } from "./_nav";
+import { leadsAPI, paymentsAPI } from "../../config/api";
 import { CreditCard, CheckCircle } from "lucide-react";
+import toast from "react-hot-toast";
+import { openRazorpayCheckout } from "../../utils/razorpay";
+
+const money = (amount) => `₹${Number(amount || 0).toLocaleString("en-IN")}`;
 
 export default function CustomerPayments() {
-  const handlePay = async () => {
-    const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID;
-    if (!keyId) { alert("Razorpay not configured. Set VITE_RAZORPAY_KEY_ID in .env"); return; }
-    // Load Razorpay script
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    document.body.appendChild(script);
-    script.onload = () => {
-      const options = {
-        key: keyId,
-        amount: 100000, // ₹1000 in paise
-        currency: "INR",
-        name: "Prasad Farm Care 360°",
-        description: "Farm Service Payment",
-        image: "",
-        handler: (response) => { alert(`Payment successful! Payment ID: ${response.razorpay_payment_id}`); },
-        prefill: { name: "Customer Name", email: "customer@email.com" },
-        theme: { color: "#c9a84c" },
-      };
-      const rzp = new window.Razorpay(options);
-      rzp.open();
-    };
+  const [leads, setLeads] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [busyId, setBusyId] = useState(null);
+
+  const refresh = async () => {
+    const [leadResult, paymentResult] = await Promise.all([leadsAPI.list(), paymentsAPI.list()]);
+    if (leadResult.success) setLeads(leadResult.data.items || []);
+    if (paymentResult.success) setPayments(paymentResult.data || []);
+  };
+  useEffect(() => { refresh().catch(() => toast.error("Could not load payment details")); }, []);
+
+  const payLead = async (lead) => {
+    setBusyId(lead.id);
+    try {
+      const order = (await paymentsAPI.leadOrder(lead.id)).data;
+      const result = await openRazorpayCheckout(order, "Farm360 service payment");
+      await paymentsAPI.confirm({
+        gateway_order_id: result.razorpay_order_id,
+        gateway_payment_id: result.razorpay_payment_id,
+        gateway_signature: result.razorpay_signature,
+      });
+      await refresh();
+      toast.success("Payment verified successfully");
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || error?.detail || error.message || "Payment could not be completed");
+    } finally { setBusyId(null); }
   };
 
+  const paymentByLead = Object.fromEntries(payments.filter((payment) => payment.lead_id).map((payment) => [payment.lead_id, payment]));
+  const paymentLeads = leads.filter((lead) => lead.status === "payment" || paymentByLead[lead.id]);
+
   return (
-    <PortalPage title="Payments" subtitle="View invoices and make payments" navItems={CUSTOMER_NAV}>
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="card">
-          <h2 className="section-title">Payment Summary</h2>
-          <div className="space-y-3">
-            {[
-              { label: "Farm Management Fee", amount: "₹50,000", due: "Oct 2026", status: "Due" },
-              { label: "Soil Testing Service", amount: "₹5,000", due: "Paid", status: "Paid" },
-              { label: "Investment Commission", amount: "₹2,500", due: "Paid", status: "Paid" },
-            ].map((p) => (
-              <div key={p.label} className="flex items-center justify-between py-2 border-b border-white/5">
-                <div>
-                  <p className="text-sm font-medium text-[#f0ede4]">{p.label}</p>
-                  <p className="text-xs text-[#8fac9a]">{p.due}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="font-semibold text-[#f0ede4]">{p.amount}</span>
-                  {p.status === "Paid" ? <CheckCircle size={16} className="text-green-400" /> : <span className="badge-warning">Due</span>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="card">
-          <h2 className="section-title">Make a Payment</h2>
-          <p className="text-[#8fac9a] text-sm mb-6">Securely pay for farm services via Razorpay. Supports UPI, cards, and net banking.</p>
-          <div className="space-y-3">
-            <div><label className="label">Amount (₹)</label><input className="input" type="number" placeholder="50000" /></div>
-            <div><label className="label">Reference / Invoice</label><input className="input" placeholder="INV-2026-001" /></div>
-          </div>
-          <button onClick={handlePay} className="btn-primary w-full mt-4 flex items-center justify-center gap-2">
-            <CreditCard size={18} /> Pay via Razorpay
-          </button>
-          <p className="text-xs text-center text-[#8fac9a] mt-3">256-bit SSL secured · UPI, Cards, Net Banking</p>
-        </div>
+    <PortalPage title="Payments" subtitle="Pay approved service quotations and review verified transactions" navItems={CUSTOMER_NAV}>
+      <div className="grid md:grid-cols-2 gap-4">
+        {paymentLeads.map((lead) => {
+          const payment = paymentByLead[lead.id];
+          const amount = lead.final_amount ?? lead.price_to_complete;
+          const isPaid = lead.payment_confirmed_at || payment?.status === "paid";
+          return <article key={lead.id} className="card">
+            <div className="flex justify-between items-start gap-3"><div><h2 className="font-semibold text-[#f0ede4]">{lead.services_needed || lead.type.replaceAll("_", " ")}</h2><p className="text-xs text-[#8fac9a] mt-1">Request #{lead.id.slice(0, 8)}</p></div>{isPaid ? <CheckCircle className="text-green-400" size={18} /> : <span className="badge-warning">Payment due</span>}</div>
+            <p className="text-2xl font-bold mt-5">{money(amount)}</p>
+            {isPaid ? <p className="text-sm text-green-400 mt-3">Payment verified. FarmCare will continue your request.</p> : <button disabled={busyId === lead.id || !amount} className="btn-primary mt-4 flex items-center gap-2" onClick={() => payLead(lead)}><CreditCard size={17} />{busyId === lead.id ? "Opening payment…" : "Pay Now"}</button>}
+          </article>;
+        })}
+        {paymentLeads.length === 0 && <div className="card md:col-span-2 text-center py-10"><CreditCard size={36} className="mx-auto mb-2 opacity-30" /><p className="text-[#8fac9a]">No service payments are due.</p></div>}
       </div>
+
+      <section className="card mt-6">
+        <h2 className="section-title">Payment history</h2>
+        <div className="divide-y divide-white/10">
+          {payments.map((payment) => <div key={payment.id} className="py-3 flex justify-between items-center gap-4 text-sm"><div><p className="text-[#f0ede4] capitalize">{payment.purpose.replaceAll("_", " ")}</p><p className="text-xs text-[#8fac9a]">{payment.paid_at ? new Date(payment.paid_at).toLocaleString() : `Order created ${new Date(payment.created_at).toLocaleDateString()}`}</p></div><div className="text-right"><p className="font-semibold">{money(payment.amount)}</p><p className={payment.status === "paid" ? "text-green-400" : "text-[#8fac9a]"}>{payment.status}</p></div></div>)}
+          {payments.length === 0 && <p className="py-4 text-sm text-[#8fac9a]">No transactions yet.</p>}
+        </div>
+      </section>
     </PortalPage>
   );
 }

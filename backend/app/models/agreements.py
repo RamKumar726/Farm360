@@ -24,6 +24,8 @@ class Agreement(Base):
 
     id = Column(String, primary_key=True, index=True)
     customer_id = Column(String, ForeignKey("customers.id"), nullable=False)
+    lead_id = Column(String, ForeignKey("leads.id"), nullable=True)
+    project_id = Column(String, ForeignKey("projects.id"), nullable=True)
     farm_id = Column(String, ForeignKey("farms.id"), nullable=True)
     type = Column(SAEnum(AgreementType), nullable=False)
     start_date = Column(Date, nullable=True)
@@ -37,3 +39,5 @@ class Agreement(Base):
 
     customer = relationship("Customer", back_populates="agreements")
     farm = relationship("Farm", back_populates="agreements")
+    lead = relationship("Lead", foreign_keys=[lead_id])
+    project = relationship("Project", foreign_keys=[project_id])

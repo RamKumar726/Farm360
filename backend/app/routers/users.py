@@ -1,6 +1,7 @@
 import uuid
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
 from app.database import get_db
@@ -56,7 +57,15 @@ def list_users(
     if current_user.role == UserRole.zone_admin:
         query = query.filter(User.branch_id == current_user.branch_id)
     elif current_user.role == UserRole.employee:
-        query = query.filter(User.zone_id == current_user.zone_id)
+        # Employees need to choose a same-branch Agriculture Officer when
+        # qualifying a lease. Seeded/officer accounts may have a branch but no
+        # zone, so a zone-only list hides valid assignees from the UI.
+        same_zone = User.zone_id == current_user.zone_id if current_user.zone_id else False
+        same_branch_officers = and_(
+            User.role == UserRole.agri_officer,
+            User.branch_id == current_user.branch_id,
+        ) if current_user.branch_id else False
+        query = query.filter(or_(same_zone, same_branch_officers))
     if role:
         query = query.filter(User.role == role)
     total = query.count()

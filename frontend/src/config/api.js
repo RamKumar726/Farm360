@@ -45,6 +45,19 @@ api.interceptors.response.use(
 
 export default api;
 
+// Generic helper function for endpoint paths
+export const apiFetch = async (url, options = {}) => {
+  const method = (options.method || "GET").toLowerCase();
+  const data = options.body ? JSON.parse(options.body) : undefined;
+  if (method === "get") return api.get(url, { params: options.params });
+  if (method === "post") return api.post(url, data);
+  if (method === "patch") return api.patch(url, data);
+  if (method === "put") return api.put(url, data);
+  if (method === "delete") return api.delete(url);
+  return api({ url, method, data });
+};
+
+
 // --- Typed API helpers ---
 
 export const authAPI = {
@@ -94,6 +107,8 @@ export const leadsAPI = {
   list: (params) => api.get("/leads", { params }),
   get: (id) => api.get(`/leads/${id}`),
   create: (data) => api.post("/leads", data),
+  createPublic: (data) => api.post("/leads/public", data),
+  registerCustomer: (id, data) => api.post(`/leads/${id}/register-customer`, data),
   updateStatus: (id, data) => api.patch(`/leads/${id}/status`, data),
   getLost: (params) => api.get("/leads/lost", { params }),
   getWon: (params) => api.get("/leads/won", { params }),
@@ -107,6 +122,7 @@ export const workOrdersAPI = {
   assignEmployee: (id, employeeId) => api.post(`/work-orders/${id}/assign-farm-employee`, { employee_id: employeeId }),
   verify: (id) => api.post(`/work-orders/${id}/verify`),
   updateStatus: (id, data) => api.patch(`/work-orders/${id}/status`, data),
+  close: (id, completionNotes) => api.post(`/work-orders/${id}/close`, { completion_notes: completionNotes }),
 };
 
 export const visitsAPI = {
@@ -162,7 +178,18 @@ export const investmentsAPI = {
   list: (params) => api.get("/investments", { params }),
   get: (id) => api.get(`/investments/${id}`),
   create: (data) => api.post("/investments", data),
+  expressInterest: (data) => api.post("/investments/express-interest", data),
+  approveInterest: (id) => api.post(`/investments/${id}/approve-interest`),
+  updatePipeline: (id, verification_stage, agreement_url) => api.patch(`/investments/${id}/pipeline`, { verification_stage, agreement_url }),
   revenueShare: (id) => api.get(`/investments/${id}/revenue-share`),
+  recordPayout: (id, data) => api.post(`/investments/${id}/payout`, data),
+};
+
+export const paymentsAPI = {
+  list: () => api.get("/payments"),
+  leadOrder: (id) => api.post(`/payments/leads/${id}/order`),
+  investmentOrder: (id) => api.post(`/payments/investments/${id}/order`),
+  confirm: (data) => api.post("/payments/confirm", data),
 };
 
 export const projectsAPI = {
@@ -181,8 +208,9 @@ export const brokersAPI = {
 export const workPartnersAPI = {
   list: (params) => api.get("/work-partners", { params }),
   create: (data) => api.post("/work-partners", data),
-  accept: (id) => api.post(`/work-partners/${id}/accept`),
-  reject: (id) => api.post(`/work-partners/${id}/reject`),
+  linkAccount: (id, user_email) => api.patch(`/work-partners/${id}/account`, { user_email }),
+  accept: (id, data) => api.post(`/work-partners/${id}/accept`, data),
+  reject: (id, data) => api.post(`/work-partners/${id}/reject`, data),
   verify: (id, workOrderId, qualityGood) =>
     api.post(`/work-partners/${id}/verify?work_order_id=${workOrderId}&quality_good=${qualityGood}`),
   payment: (id, data) => api.post(`/work-partners/${id}/payment`, data),
@@ -208,4 +236,35 @@ export const analyticsAPI = {
   visits: () => api.get("/analytics/visits"),
   employees: () => api.get("/analytics/employees"),
   investments: () => api.get("/analytics/investments"),
+};
+
+export const issuesAPI = {
+  list: (params) => api.get("/issues", { params }),
+  get: (id) => api.get(`/issues/${id}`),
+  create: (data) => api.post("/issues", data),
+  update: (id, data) => api.patch(`/issues/${id}`, data),
+  escalate: (id) => api.post(`/issues/${id}/escalate`),
+  resolve: (id, notes) => api.post(`/issues/${id}/resolve?resolution_notes=${encodeURIComponent(notes)}`),
+  delete: (id) => api.delete(`/issues/${id}`),
+};
+
+export const harvestsAPI = {
+  list: (params) => api.get("/harvests", { params }),
+  get: (id) => api.get(`/harvests/${id}`),
+  create: (data) => api.post("/harvests", data),
+  update: (id, data) => api.patch(`/harvests/${id}`, data),
+  recordPayment: (id, data) => api.post(`/harvests/${id}/record-payment`, data),
+};
+
+export const projectFinanceAPI = {
+  expenses: (projectId) => api.get(`/finance/projects/${projectId}/expenses`),
+  createExpense: (data) => api.post("/finance/expenses", data),
+  reviewExpense: (id, approved, note) => api.post(`/finance/expenses/${id}/review`, { approved, note }),
+  markExpensePaid: (id, data) => api.post(`/finance/expenses/${id}/mark-paid`, data),
+  settlements: (projectId) => api.get(`/finance/projects/${projectId}/settlements`),
+  createSettlement: (projectId, data) => api.post(`/finance/projects/${projectId}/settlements`, data),
+  approveSettlement: (id, approved) => api.post(`/finance/settlements/${id}/approve?approved=${approved}`),
+  markSettlementPaid: (id, data) => api.post(`/finance/settlements/${id}/mark-paid`, data),
+  outsourcingContracts: (projectId) => api.get(`/finance/projects/${projectId}/outsourcing-contracts`),
+  createOutsourcingContract: (projectId, data) => api.post(`/finance/projects/${projectId}/outsourcing-contracts`, data),
 };

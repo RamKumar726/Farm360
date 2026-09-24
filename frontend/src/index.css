@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,12 +6,13 @@
 
 @layer base {
   :root {
-    --primary: #1a3c2e;
-    --accent: #c9a84c;
-    --background: #0f1f19;
-    --surface: #1e4535;
-    --text: #f0ede4;
-    --muted: #8fac9a;
+    --primary: #143628;
+    --accent: #c4a462;
+    --background: #fbf9f4;
+    --surface: #f5f2ea;
+    --border-cream: #e8e2d5;
+    --text-dark: #1f2824;
+    --muted: #6b7770;
   }
 
   * {
@@ -23,111 +24,169 @@
   }
 
   body {
-    @apply bg-background text-[#f0ede4] font-sans antialiased;
+    background-color: var(--background);
+    color: var(--text-dark);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
     min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
   }
 
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
-  ::-webkit-scrollbar-track { background: #0f1f19; }
-  ::-webkit-scrollbar-thumb { background: #2a5540; border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: #c9a84c; }
+  ::-webkit-scrollbar-track { background: #fbf9f4; }
+  ::-webkit-scrollbar-thumb { background: #c5beb1; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #143628; }
 }
 
 @layer components {
+  /* Brand Typography */
+  .font-serif-brand {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+
+  .font-sans-brand {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Unified Buttons */
+  .btn-forest {
+    @apply bg-[#143628] text-[#fbf9f4] font-medium px-5 py-2.5 rounded-full
+           inline-flex items-center justify-center gap-2
+           transition-all duration-200 hover:bg-[#1b4d39] hover:shadow-md
+           active:scale-[0.98] cursor-pointer;
+  }
+
+  .btn-gold {
+    @apply bg-[#c4a462] text-[#143628] font-semibold px-5 py-2.5 rounded-full
+           inline-flex items-center justify-center gap-2
+           transition-all duration-200 hover:bg-[#b59451] hover:shadow-md
+           active:scale-[0.98] cursor-pointer;
+  }
+
+  .btn-outline-forest {
+    @apply border border-[#143628] text-[#143628] font-medium px-5 py-2.5 rounded-full
+           inline-flex items-center justify-center gap-2 bg-transparent
+           transition-all duration-200 hover:bg-[#143628] hover:text-[#fbf9f4]
+           active:scale-[0.98] cursor-pointer;
+  }
+
+  .chip-pill {
+    @apply px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium border border-[#e8e2d5]
+           bg-[#fbf9f4] text-[#143628] transition-all cursor-pointer hover:border-[#143628];
+  }
+
+  .chip-pill-active {
+    @apply bg-[#143628] text-[#fbf9f4] border-[#143628];
+  }
+
+  /* Light Luxury Card */
+  .card-light {
+    @apply bg-[#f5f2ea] border border-[#e8e2d5] rounded-2xl p-6 shadow-sm
+           transition-all duration-300 hover:border-[#c5beb1] hover:shadow-md;
+  }
+
+  /* Legacy & Dark elements backward compatibility */
   .btn-primary {
-    @apply bg-accent text-primary-900 font-semibold px-5 py-2.5 rounded-lg
-           transition-all duration-200 hover:brightness-110 hover:scale-[1.02]
-           active:scale-[0.98] shadow-md hover:shadow-glow;
+    @apply bg-[#c4a462] text-[#143628] font-semibold px-5 py-2.5 rounded-lg
+           transition-all duration-200 hover:brightness-105 active:scale-[0.98];
   }
 
   .btn-secondary {
-    @apply border border-accent/40 text-accent bg-transparent font-medium px-5 py-2.5 rounded-lg
-           transition-all duration-200 hover:bg-accent/10 hover:border-accent;
+    @apply border border-[#143628]/30 text-[#143628] bg-transparent font-medium px-5 py-2.5 rounded-lg
+           transition-all duration-200 hover:bg-[#143628]/5;
   }
 
   .btn-ghost {
-    @apply text-[#8fac9a] hover:text-[#f0ede4] px-3 py-2 rounded-lg
-           transition-all duration-200 hover:bg-white/5;
+    @apply text-[#55635b] hover:text-[#143628] px-3 py-2 rounded-lg
+           transition-all duration-200 hover:bg-black/5;
   }
 
   .card {
-    @apply bg-card-gradient border border-white/8 rounded-2xl p-6 shadow-card
-           backdrop-blur-sm transition-all duration-300 hover:border-accent/20;
+    @apply bg-[#f5f2ea] border border-[#e8e2d5] rounded-2xl p-6 shadow-sm
+           transition-all duration-300 hover:border-[#143628]/30;
   }
 
   .card-stat {
-    @apply card flex flex-col gap-2 hover:shadow-glow;
+    @apply card flex flex-col gap-2 hover:shadow-md;
   }
 
   .input {
-    @apply w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3
-           text-[#f0ede4] placeholder-[#8fac9a] focus:outline-none
-           focus:border-accent/60 focus:ring-2 focus:ring-accent/20
+    @apply w-full bg-[#fbf9f4] border border-[#e8e2d5] rounded-xl px-4 py-3
+           text-[#1f2824] placeholder-[#8c9790] focus:outline-none
+           focus:border-[#143628] focus:ring-2 focus:ring-[#143628]/10
            transition-all duration-200;
   }
 
   .label {
-    @apply text-sm font-medium text-[#8fac9a] mb-1.5 block;
+    @apply text-sm font-medium text-[#4a5850] mb-1.5 block;
   }
 
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
 
-  .badge-success { @apply badge bg-green-500/20 text-green-400 border border-green-500/20; }
-  .badge-warning { @apply badge bg-yellow-500/20 text-yellow-400 border border-yellow-500/20; }
-  .badge-error   { @apply badge bg-red-500/20 text-red-400 border border-red-500/20; }
-  .badge-info    { @apply badge bg-blue-500/20 text-blue-400 border border-blue-500/20; }
-  .badge-accent  { @apply badge bg-accent/20 text-accent border border-accent/30; }
-  .badge-muted   { @apply badge bg-white/10 text-[#8fac9a] border border-white/10; }
+  .badge-success { @apply badge bg-[#e2ebe4] text-[#1e543e] border border-[#c3d6c8]; }
+  .badge-warning { @apply badge bg-[#fef3c7] text-[#92400e] border border-[#fde68a]; }
+  .badge-error   { @apply badge bg-[#fee2e2] text-[#991b1b] border border-[#fca5a5]; }
+  .badge-info    { @apply badge bg-[#e0f2fe] text-[#075985] border border-[#bae6fd]; }
+  .badge-accent  { @apply badge bg-[#fef9c3] text-[#854d0e] border border-[#fef08a]; }
+  .badge-muted   { @apply badge bg-[#e8e2d5] text-[#55635b] border border-[#d8d2c5]; }
 
   .sidebar-link {
-    @apply flex items-center gap-3 px-4 py-3 rounded-xl text-[#8fac9a]
-           hover:text-[#f0ede4] hover:bg-white/8 transition-all duration-200
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl text-[#55635b]
+           hover:text-[#143628] hover:bg-[#143628]/5 transition-all duration-200
            font-medium text-sm cursor-pointer;
   }
 
   .sidebar-link.active {
-    @apply bg-accent/15 text-accent border-l-2 border-accent;
+    @apply bg-[#143628] text-[#fbf9f4];
   }
 
   .table-header {
-    @apply text-left text-xs font-semibold text-[#8fac9a] uppercase tracking-wider py-3 px-4;
+    @apply text-left text-xs font-semibold text-[#55635b] uppercase tracking-wider py-3 px-4 bg-[#ede8dc];
   }
 
   .table-cell {
-    @apply py-3 px-4 text-sm text-[#f0ede4] border-b border-white/5;
+    @apply py-3 px-4 text-sm text-[#1f2824] border-b border-[#e8e2d5];
   }
 
   .table-row {
-    @apply hover:bg-white/3 transition-colors duration-150;
+    @apply hover:bg-[#fbf9f4] transition-colors duration-150;
   }
 
   .glass-panel {
-    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl;
+    @apply bg-[#f5f2ea]/90 backdrop-blur-xl border border-[#e8e2d5] rounded-2xl;
   }
 
   .section-title {
-    @apply font-display text-xl font-bold text-[#f0ede4] mb-6;
+    @apply font-serif-brand text-2xl md:text-3xl text-[#143628] font-medium mb-4;
   }
 
   .page-header {
-    @apply font-display text-2xl md:text-3xl font-bold text-[#f0ede4];
+    @apply font-serif-brand text-3xl md:text-4xl text-[#143628] font-semibold;
   }
 
   .divider {
-    @apply border-t border-white/8 my-6;
+    @apply border-t border-[#e8e2d5] my-6;
   }
 }
 
 @layer utilities {
   .text-gradient-gold {
-    background: linear-gradient(135deg, #c9a84c, #e9c55f, #c9a84c);
+    background: linear-gradient(135deg, #c4a462, #d8b876, #a88846);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+  }
+  .bg-cream-light {
+    background-color: #fbf9f4;
+  }
+  .bg-cream-card {
+    background-color: #f5f2ea;
+  }
+  .bg-forest-dark {
+    background-color: #143628;
   }
 }

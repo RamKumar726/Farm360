@@ -16,6 +16,7 @@ class WorkPartner(Base):
 
     id = Column(String, primary_key=True, index=True)
     name = Column(String, nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True, unique=True)
     contact = Column(String, nullable=True)
     zone_id = Column(String, ForeignKey("zones.id"), nullable=True)
     work_types = Column(JSON, nullable=True)      # list of WorkOrderType strings
@@ -25,4 +26,5 @@ class WorkPartner(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
 
     zone = relationship("Zone", back_populates="work_partners")
+    user = relationship("User", foreign_keys=[user_id])
     work_orders = relationship("WorkOrder", back_populates="outsourcing_partner")

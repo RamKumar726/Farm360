@@ -30,9 +30,10 @@ class AgreementCreate(BaseModel):
 def ag_to_dict(a: Agreement):
     return {
         "id": a.id, "customer_id": a.customer_id, "farm_id": a.farm_id,
+        "lead_id": a.lead_id, "project_id": a.project_id,
         "type": a.type.value, "start_date": str(a.start_date) if a.start_date else None,
         "end_date": str(a.end_date) if a.end_date else None,
-        "amount": a.amount, "status": a.status.value,
+        "amount": a.amount, "payment_terms": a.payment_terms, "status": a.status.value,
         "document_url": a.document_url,
     }
 
@@ -47,8 +48,11 @@ def list_agreements(
     if current_user.role == UserRole.customer:
         from app.models.customers import Customer
         c = db.query(Customer).filter(Customer.user_id == current_user.id).first()
-        if c:
-            query = query.filter(Agreement.customer_id == c.id)
+        if not c:
+            return success(data={"total": 0, "items": []})
+        query = query.filter(Agreement.customer_id == c.id)
+    elif current_user.role not in {UserRole.founder, UserRole.zone_admin, UserRole.employee, UserRole.agri_officer}:
+        raise HTTPException(403, "You cannot access agreements")
     total = query.count()
     items = query.offset((page - 1) * page_size).limit(page_size).all()
     return success(data={"total": total, "items": [ag_to_dict(a) for a in items]})
@@ -68,8 +72,15 @@ def create_agreement(
 
 
 @router.get("/{ag_id}")
-def get_agreement(ag_id: str, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def get_agreement(ag_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     ag = db.query(Agreement).filter(Agreement.id == ag_id).first()
     if not ag:
         raise HTTPException(404, "Agreement not found")
+    if current_user.role == UserRole.customer:
+        from app.models.customers import Customer
+        customer = db.query(Customer).filter(Customer.user_id == current_user.id).first()
+        if not customer or ag.customer_id != customer.id:
+            raise HTTPException(404, "Agreement not found")
+    elif current_user.role not in {UserRole.founder, UserRole.zone_admin, UserRole.employee, UserRole.agri_officer}:
+        raise HTTPException(403, "You cannot access agreements")
     return success(data=ag_to_dict(ag))

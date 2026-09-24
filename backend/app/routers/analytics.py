@@ -31,13 +31,15 @@ def leads_analytics(
     base = db.query(Lead)
     base = _scope_leads(base, current_user, db)
     total = base.count()
-    won = base.filter(Lead.status == LeadStatus.won).count()
-    lost = base.filter(Lead.status == LeadStatus.lost).count()
-    pending = base.filter(Lead.status == LeadStatus.new).count()
+    won = base.filter(Lead.status == LeadStatus.closed_won).count()
+    lost = base.filter(Lead.status == LeadStatus.closed_lost).count()
+    prospecting = base.filter(Lead.status == LeadStatus.prospecting).count()
+    active = total - won - lost
     conversion_rate = round((won / total * 100) if total > 0 else 0, 1)
     return success(data={
         "total_leads": total, "won": won, "lost": lost,
-        "pending": pending, "conversion_rate_pct": conversion_rate,
+        "active": active, "prospecting": prospecting,
+        "conversion_rate_pct": conversion_rate,
     })
 
 

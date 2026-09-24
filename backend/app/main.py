@@ -14,7 +14,7 @@ from app.routers import (
     auth, users, branches, zones, leads, work_orders,
     visits, farms, agreements, prescriptions, crop_designs,
     land_sales, investments, projects, brokers, work_partners,
-    notifications, attendance, analytics,
+    notifications, attendance, analytics, issues, harvests, payments, finance, services,
 )
 
 limiter = Limiter(key_func=get_remote_address)
@@ -59,6 +59,11 @@ app.include_router(work_partners.router)
 app.include_router(notifications.router)
 app.include_router(attendance.router)
 app.include_router(analytics.router)
+app.include_router(issues.router)
+app.include_router(harvests.router)
+app.include_router(payments.router)
+app.include_router(finance.router)
+app.include_router(services.router)
 
 
 @app.get("/")

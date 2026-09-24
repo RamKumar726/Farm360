@@ -23,6 +23,17 @@ class WorkPartnerCreate(BaseModel):
     zone_id: Optional[str] = None
     work_types: Optional[list] = None
     payment_terms: Optional[str] = None
+    user_id: Optional[str] = None
+    user_email: Optional[str] = None
+
+
+class WorkPartnerDecision(BaseModel):
+    work_order_id: str
+    confirmed_start_date: Optional[date] = None
+
+
+class WorkPartnerAccountLink(BaseModel):
+    user_email: str
 
 
 class PaymentAction(BaseModel):
@@ -34,6 +45,7 @@ class PaymentAction(BaseModel):
 
 def wp_to_dict(w: WorkPartner):
     return {"id": w.id, "name": w.name, "contact": w.contact,
+            "user_id": w.user_id,
             "zone_id": w.zone_id, "work_types": w.work_types,
             "status": w.status.value, "payment_terms": w.payment_terms}
 
@@ -43,9 +55,15 @@ def list_work_partners(
     page: int = Query(1, ge=1), page_size: int = Query(20),
     zone_id: Optional[str] = None,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    if current_user.role not in {UserRole.founder, UserRole.zone_admin, UserRole.employee, UserRole.work_partner}:
+        raise HTTPException(403, "You cannot access work partner records")
     query = db.query(WorkPartner)
+    if current_user.role == UserRole.work_partner:
+        query = query.filter(WorkPartner.user_id == current_user.id)
+    elif current_user.role in {UserRole.zone_admin, UserRole.employee}:
+        query = query.filter(WorkPartner.zone_id == current_user.zone_id) if current_user.zone_id else query.filter(False)
     if zone_id:
         query = query.filter(WorkPartner.zone_id == zone_id)
     total = query.count()
@@ -57,40 +75,105 @@ def list_work_partners(
 def create_work_partner(
     body: WorkPartnerCreate,
     db: Session = Depends(get_db),
-    _: User = Depends(require_roles(UserRole.founder, UserRole.zone_admin, UserRole.employee)),
+    current_user: User = Depends(require_roles(UserRole.founder, UserRole.zone_admin, UserRole.employee)),
 ):
-    wp = WorkPartner(id=str(uuid.uuid4()), **body.dict())
+    data = body.dict(exclude={"user_email"})
+    if not body.user_email and not data.get("user_id"):
+        raise HTTPException(400, "Link an authenticated Work Partner account to enable assignments")
+    if body.user_email or data.get("user_id"):
+        account_query = db.query(User).filter(User.role == UserRole.work_partner, User.is_deleted == False)
+        account = account_query.filter(User.email == body.user_email).first() if body.user_email else account_query.filter(User.id == data["user_id"]).first()
+        if not account:
+            raise HTTPException(400, "Create an active Work Partner user account with this email first")
+        if data.get("zone_id") and account.zone_id != data["zone_id"]:
+            raise HTTPException(400, "Provider login and partner record must belong to the same zone")
+        if data.get("user_id") and data["user_id"] != account.id:
+            raise HTTPException(400, "Use either the provider email or user ID, not different accounts")
+        data["user_id"] = account.id
+        data["zone_id"] = data.get("zone_id") or account.zone_id
+    if not data.get("zone_id"):
+        raise HTTPException(400, "Assign the provider login to a zone before linking it")
+    if current_user.role in {UserRole.zone_admin, UserRole.employee} and data["zone_id"] != current_user.zone_id:
+        raise HTTPException(404, "You cannot create a provider outside your zone")
+    wp = WorkPartner(id=str(uuid.uuid4()), **data)
     db.add(wp)
     db.commit()
     db.refresh(wp)
     return success(data=wp_to_dict(wp), message="Work partner added")
 
 
+@router.patch("/{wp_id}/account")
+def link_partner_account(
+    wp_id: str,
+    body: WorkPartnerAccountLink,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.founder, UserRole.zone_admin, UserRole.employee)),
+):
+    partner = db.query(WorkPartner).filter(WorkPartner.id == wp_id).first()
+    if not partner:
+        raise HTTPException(404, "Work partner not found")
+    if current_user.role in {UserRole.zone_admin, UserRole.employee} and partner.zone_id != current_user.zone_id:
+        raise HTTPException(404, "Work partner not found")
+    account = db.query(User).filter(User.email == body.user_email, User.role == UserRole.work_partner, User.is_deleted == False).first()
+    if not account:
+        raise HTTPException(404, "Active Work Partner account not found")
+    if not partner.zone_id or account.zone_id != partner.zone_id:
+        raise HTTPException(400, "Provider login and partner record must belong to the same zone")
+    if db.query(WorkPartner.id).filter(WorkPartner.user_id == account.id, WorkPartner.id != partner.id).first():
+        raise HTTPException(409, "This account is already linked to another work partner")
+    partner.user_id = account.id
+    db.commit()
+    db.refresh(partner)
+    return success(data=wp_to_dict(partner), message="Work Partner portal account linked")
+
+
 @router.post("/{wp_id}/accept")
 def accept_work(
     wp_id: str,
+    body: WorkPartnerDecision,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles(UserRole.work_partner)),
 ):
-    wp = db.query(WorkPartner).filter(WorkPartner.id == wp_id).first()
-    if not wp:
+    from app.models.work_orders import WorkOrder, WorkOrderStatus
+    wp = db.query(WorkPartner).filter(WorkPartner.id == wp_id, WorkPartner.user_id == current_user.id, WorkPartner.status == WorkPartnerStatus.active).first()
+    wo = db.query(WorkOrder).filter(WorkOrder.id == body.work_order_id, WorkOrder.outsourcing_partner_id == wp_id).with_for_update().first() if wp else None
+    if not wp or not wo:
         raise HTTPException(404, "Work partner not found")
-    # Update status and notify employee
-    notify_partner_response("system", wp.name, accepted=True, db=db)
-    return success(message=f"Work partner '{wp.name}' accepted the assignment")
+    if wo.status != WorkOrderStatus.assigned:
+        raise HTTPException(400, "Only an assigned work order can be confirmed")
+    if body.confirmed_start_date is None:
+        raise HTTPException(400, "Confirm the work date before accepting the assignment")
+    if body.confirmed_start_date < date.today():
+        raise HTTPException(400, "Confirmed work date cannot be in the past")
+    wo.start_date = body.confirmed_start_date
+    wo.end_date = body.confirmed_start_date
+    wo.status = WorkOrderStatus.partner_accepted
+    db.commit()
+    if wo.assigned_employee_id:
+        notify_partner_response(wo.assigned_employee_id, wp.name, accepted=True, db=db)
+    return success({"work_order_id": wo.id, "status": wo.status.value, "start_date": str(wo.start_date) if wo.start_date else None}, "Assignment and work date confirmed")
 
 
 @router.post("/{wp_id}/reject")
 def reject_work(
     wp_id: str,
+    body: WorkPartnerDecision,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles(UserRole.work_partner)),
 ):
-    wp = db.query(WorkPartner).filter(WorkPartner.id == wp_id).first()
-    if not wp:
+    from app.models.work_orders import WorkOrder, WorkOrderStatus
+    wp = db.query(WorkPartner).filter(WorkPartner.id == wp_id, WorkPartner.user_id == current_user.id, WorkPartner.status == WorkPartnerStatus.active).first()
+    wo = db.query(WorkOrder).filter(WorkOrder.id == body.work_order_id, WorkOrder.outsourcing_partner_id == wp_id).with_for_update().first() if wp else None
+    if not wp or not wo:
         raise HTTPException(404, "Work partner not found")
-    notify_partner_response("system", wp.name, accepted=False, db=db)
-    return success(message=f"Work partner '{wp.name}' rejected. Please reassign.")
+    if wo.status != WorkOrderStatus.assigned:
+        raise HTTPException(400, "Only an assigned work order can be rejected")
+    wo.outsourcing_partner_id = None
+    wo.status = WorkOrderStatus.pending
+    db.commit()
+    if wo.assigned_employee_id:
+        notify_partner_response(wo.assigned_employee_id, wp.name, accepted=False, db=db)
+    return success({"work_order_id": wo.id, "status": wo.status.value}, "Assignment rejected; work order returned to the employee queue")
 
 
 @router.post("/{wp_id}/verify")
@@ -101,21 +184,7 @@ def verify_work(
     db: Session = Depends(get_db),
     _: User = Depends(require_roles(UserRole.founder, UserRole.zone_admin, UserRole.employee, UserRole.farm_employee)),
 ):
-    """Verify work quality — good → full payment, bad → rework + reduced payment."""
-    from app.models.work_orders import WorkOrder, WorkOrderStatus, PaymentStatus
-    wo = db.query(WorkOrder).filter(WorkOrder.id == work_order_id).first()
-    if not wo:
-        raise HTTPException(404, "Work order not found")
-    if quality_good:
-        wo.status = WorkOrderStatus.verified
-        wo.payment_status = PaymentStatus.paid
-        message = "Work verified as good — full payment released"
-    else:
-        wo.status = WorkOrderStatus.assigned  # Back to rework
-        wo.payment_status = PaymentStatus.reduced
-        message = "Work quality not satisfactory — rework required and payment reduced"
-    db.commit()
-    return success(data={"work_order_id": wo.id, "quality_good": quality_good}, message=message)
+    raise HTTPException(410, "Submit task proof, verify it through the work-order review, and record provider payment as a project expense")
 
 
 @router.post("/{wp_id}/payment")
@@ -124,10 +193,4 @@ def process_payment(
     db: Session = Depends(get_db),
     _: User = Depends(require_roles(UserRole.founder, UserRole.zone_admin)),
 ):
-    from app.models.work_orders import WorkOrder, PaymentStatus
-    wo = db.query(WorkOrder).filter(WorkOrder.id == body.work_order_id).first()
-    if not wo:
-        raise HTTPException(404, "Work order not found")
-    wo.payment_status = PaymentStatus.paid if body.is_full_payment else PaymentStatus.reduced
-    db.commit()
-    return success(message=f"Payment of ₹{body.amount:,.2f} processed ({'full' if body.is_full_payment else 'reduced'})")
+    raise HTTPException(410, "Record provider costs and payment references through project finance expenses")

@@ -8,6 +8,7 @@ class Broker(Base):
     __tablename__ = "brokers"
 
     id = Column(String, primary_key=True, index=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True, unique=True)
     name = Column(String, nullable=False)
     contact = Column(String, nullable=True)
     zone_id = Column(String, ForeignKey("zones.id"), nullable=True)
@@ -18,3 +19,4 @@ class Broker(Base):
 
     zone = relationship("Zone", back_populates="brokers")
     assigned_by_user = relationship("User", foreign_keys=[assigned_by])
+    user = relationship("User", foreign_keys=[user_id])

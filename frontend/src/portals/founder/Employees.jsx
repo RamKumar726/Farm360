@@ -124,6 +124,7 @@ export default function FounderEmployees() {
     { key: "employee", label: "Office Employee" },
     { key: "agri_officer", label: "Agri Officer" },
     { key: "farm_employee", label: "Farm Worker" },
+    { key: "work_partner", label: "Outsourcing Provider" },
     { key: "customer", label: "Customer" },
   ];
 
@@ -227,6 +228,7 @@ export default function FounderEmployees() {
                   <option value="employee">Office Employee (CRM)</option>
                   <option value="agri_officer">Agri Officer (Agronomist)</option>
                   <option value="farm_employee">Farm Worker (Field Agent)</option>
+                  <option value="work_partner">Outsourcing Provider</option>
                   <option value="customer">Customer (Farm Owner)</option>
                 </select>
               </div>

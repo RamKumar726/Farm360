@@ -1,8 +1,9 @@
 import enum
-from sqlalchemy import Column, String, DateTime, ForeignKey, Enum as SAEnum, Float, Text, Date, JSON
+from sqlalchemy import Column, String, DateTime, ForeignKey, Enum as SAEnum, Float, Text, Date, JSON, Boolean, Integer
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
+
 
 
 class LandType(str, enum.Enum):
@@ -41,6 +42,9 @@ class LandSale(Base):
     listed_price = Column(Float, nullable=True)
     status = Column(SAEnum(LandSaleStatus), nullable=False, default=LandSaleStatus.draft)
     broker_ids = Column(JSON, nullable=True)        # list of broker ids notified
+    is_broadcasted = Column(Boolean, default=False)
+    broadcasted_at = Column(DateTime(timezone=True), nullable=True)
+    broadcast_recipients_count = Column(Integer, default=0)
     description = Column(Text, nullable=True)
     photos = Column(JSON, nullable=True)            # Cloudinary URLs
     listed_at = Column(DateTime(timezone=True), nullable=True)

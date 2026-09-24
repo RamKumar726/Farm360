@@ -24,6 +24,15 @@ def seed_database():
     db = SessionLocal()
 
     try:
+        from sqlalchemy import text
+        try:
+            db.execute(text("UPDATE leads SET status = 'prospecting' WHERE status IN ('site_visit', 'new');"))
+            db.execute(text("UPDATE leads SET status = 'closed_won' WHERE status = 'won';"))
+            db.execute(text("UPDATE leads SET status = 'closed_lost' WHERE status = 'lost';"))
+            db.commit()
+        except Exception as e:
+            print(f"SQL Cleanup Notice: {e}")
+            db.rollback()
         # --- 1. BRANCHES ---
         branch_configs = [
             {"name": "Rajahmundry Main Branch", "location": "NH-16, Rajahmundry, East Godavari, AP"},
@@ -152,14 +161,14 @@ def seed_database():
         # --- 5. LEADS ---
         leads_data = [
             {
-                "type": LeadType.farm_manage, "source": LeadSource.website,
-                "status": LeadStatus.site_visit, "customer_id": users["customer@prasadfarm.com"].id,
+                "type": LeadType.farm_management, "source": LeadSource.website,
+                "status": LeadStatus.prospecting, "customer_id": users["customer@prasadfarm.com"].id,
                 "employee_id": users["employee@prasadfarm.com"].id, "zone_id": eg_zone.id, "branch_id": rjy_branch.id,
                 "farm_details": "10-acre fertile land in Kadiyam for complete organic mango management."
             },
             {
                 "type": LeadType.site_management, "source": LeadSource.digital_marketing,
-                "status": LeadStatus.won, "customer_id": users["customer.anil@prasadfarm.com"].id,
+                "status": LeadStatus.closed_won, "customer_id": users["customer.anil@prasadfarm.com"].id,
                 "employee_id": users["sita.employee@prasadfarm.com"].id, "zone_id": vzg_zone.id, "branch_id": vzg_branch.id,
                 "farm_details": "20-acre dragon fruit plantation setup near Anakapalle."
             }

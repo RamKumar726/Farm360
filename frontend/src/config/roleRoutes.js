@@ -42,6 +42,11 @@ export const ROLE_ROUTES = {
     prefix: "/customer",
     label: "Broker",
   },
+  work_partner: {
+    defaultPath: "/work-partner/dashboard",
+    prefix: "/work-partner",
+    label: "Work Partner",
+  },
 };
 
 export function getDefaultRoute(role) {

@@ -6,6 +6,8 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional
 from app.database import get_db
 from app.models.users import User, UserRole
+from app.models.customers import Customer
+from app.models.leads import Lead
 from app.auth.jwt import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 from app.auth.dependencies import get_current_user
 
@@ -69,9 +71,15 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         email=body.email,
         phone=body.phone,
         password_hash=hash_password(body.password),
-        role=body.role,
+        # Public registration must never allow a caller to grant themselves a staff role.
+        role=UserRole.customer,
     )
     db.add(user)
+    db.flush()
+    db.add(Customer(id=str(uuid.uuid4()), user_id=user.id))
+    db.query(Lead).filter(Lead.contact_email == user.email, Lead.customer_id == None).update(
+        {Lead.customer_id: user.id}, synchronize_session=False
+    )
     db.commit()
     db.refresh(user)
     return success(data={"id": user.id, "email": user.email, "role": user.role.value}, message="Registered successfully")

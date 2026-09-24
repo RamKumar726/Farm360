@@ -68,6 +68,13 @@ def notify_work_order_completed(customer_id: str, work_order_id: str, db: Sessio
     )
 
 
+def notify_proof_submitted(employee_id: str, work_order_id: str, db: Session):
+    create_notification(
+        employee_id, NotificationType.proof_submitted,
+        f"Proof has been submitted for work order #{work_order_id[:8]}. Please verify the work.", db=db
+    )
+
+
 def notify_prescription_sent(recipient_id: str, prescription_id: str, db: Session):
     create_notification(
         recipient_id, NotificationType.prescription_sent,
@@ -86,6 +93,13 @@ def notify_land_sale_listed(user_id: str, location: str, db: Session):
     create_notification(
         user_id, NotificationType.land_sale_listed,
         f"A new land listing is available at {location}.", db=db
+    )
+
+
+def notify_payment_due(user_id: str, amount: float, due_date, db: Session):
+    create_notification(
+        user_id, NotificationType.payment_due,
+        f"Farm management renewal of ₹{amount:,.2f} is due by {due_date}.", db=db
     )
 
 
