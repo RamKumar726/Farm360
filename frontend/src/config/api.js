@@ -8,15 +8,6 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// Request interceptor — attach Bearer token from localStorage for cross-domain auth
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access_token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
 // Response interceptor — auto-refresh on 401
 api.interceptors.response.use(
   (response) => response.data,
@@ -33,7 +24,6 @@ api.interceptors.response.use(
         await axios.post(`${API_BASE_URL}/auth/refresh-token`, {}, { withCredentials: true });
         return api(original);
       } catch {
-        localStorage.removeItem("access_token");
         if (window.location.pathname !== "/login" && window.location.pathname !== "/") {
           window.location.href = "/login";
         }
@@ -61,20 +51,12 @@ export const apiFetch = async (url, options = {}) => {
 // --- Typed API helpers ---
 
 export const authAPI = {
-  login: async (data) => {
-    const res = await api.post("/auth/login", data);
-    if (res?.success && res?.data?.access_token) {
-      localStorage.setItem("access_token", res.data.access_token);
-    }
-    return res;
-  },
+  login: (data) => api.post("/auth/login", data),
   register: (data) => api.post("/auth/register", data),
   logout: async () => {
     try {
       await api.post("/auth/logout");
-    } finally {
-      localStorage.removeItem("access_token");
-    }
+    } finally { /* authentication is held only in HttpOnly cookies */ }
   },
   me: () => api.get("/auth/me"),
 };
@@ -190,6 +172,19 @@ export const paymentsAPI = {
   leadOrder: (id) => api.post(`/payments/leads/${id}/order`),
   investmentOrder: (id) => api.post(`/payments/investments/${id}/order`),
   confirm: (data) => api.post("/payments/confirm", data),
+};
+
+export const quotesAPI = {
+  forLead: (leadId) => api.get(`/quotes/leads/${leadId}`),
+  createVersion: (leadId, data) => api.post(`/quotes/leads/${leadId}/versions`, data),
+  approve: (id) => api.post(`/quotes/${id}/approve`),
+  send: (id) => api.post(`/quotes/${id}/send`),
+  accept: (id) => api.post(`/quotes/${id}/accept`),
+};
+
+export const invoicesAPI = {
+  list: (params) => api.get("/invoices", { params }),
+  get: (id) => api.get(`/invoices/${id}`),
 };
 
 export const projectsAPI = {

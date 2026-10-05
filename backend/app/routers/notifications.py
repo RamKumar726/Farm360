@@ -45,11 +45,22 @@ def list_notifications(
 def send_whatsapp(
     body: WhatsAppSend,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    if current_user.role not in {UserRole.founder, UserRole.zone_admin, UserRole.employee}:
+        raise HTTPException(403, "You cannot send outbound messages")
     user = db.query(User).filter(User.id == body.user_id).first()
     if not user or not user.phone:
-        raise HTTPException(400, "User has no phone number registered")
+        raise HTTPException(404, "Recipient not found")
+    if current_user.role == UserRole.zone_admin and not (
+        (current_user.branch_id and user.branch_id == current_user.branch_id)
+        or (current_user.zone_id and user.zone_id == current_user.zone_id)
+    ):
+        raise HTTPException(404, "Recipient not found")
+    if current_user.role == UserRole.employee and not (
+        current_user.branch_id and user.branch_id == current_user.branch_id
+    ) and not (current_user.zone_id and user.zone_id == current_user.zone_id):
+        raise HTTPException(404, "Recipient not found")
     from app.utils.twilio_client import send_whatsapp_message
     try:
         send_whatsapp_message(user.phone, body.message)

@@ -28,7 +28,7 @@ export const ROLE_ROUTES = {
     label: "Farm Employee",
   },
   customer: {
-    defaultPath: "/customer/marketplace",
+    defaultPath: "/customer/dashboard",
     prefix: "/customer",
     label: "Customer",
   },
@@ -38,7 +38,7 @@ export const ROLE_ROUTES = {
     label: "Real Estate",
   },
   broker: {
-    defaultPath: "/customer/marketplace",
+    defaultPath: "/login",
     prefix: "/customer",
     label: "Broker",
   },

@@ -10,7 +10,7 @@ export default function FounderProjects() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", type: "project_investment", total_amount: "", description: "" });
+  const [form, setForm] = useState({ name: "", type: "one_time_service", total_amount: "", description: "" });
 
   useEffect(() => {
     projectsAPI.list().then((r) => { if (r.success) setProjects(r.data.items); setLoading(false); }).catch(() => setLoading(false));
@@ -28,22 +28,22 @@ export default function FounderProjects() {
     <AppLayout navItems={FOUNDER_NAV}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="page-header">Investment Projects</h1>
-          <button className="btn-primary flex items-center gap-2" onClick={() => setShowForm(!showForm)}><Plus size={16} /> Post Project</button>
+          <h1 className="page-header">Service Projects</h1>
+          <button className="btn-primary flex items-center gap-2" onClick={() => setShowForm(!showForm)}><Plus size={16} /> Create Project</button>
         </div>
 
         {showForm && (
           <div className="card animate-slide-up">
-            <h2 className="section-title">New Investment Project</h2>
+            <h2 className="section-title">New Service Project</h2>
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="grid md:grid-cols-2 gap-4">
                 <div><label className="label">Project Name</label><input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
                 <div>
                   <label className="label">Type</label>
                   <select className="input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-                    <option value="project_investment">Project Investment</option>
-                    <option value="agricultural_investment">Agricultural Investment</option>
-                    <option value="joint_project">Joint Project</option>
+                    <option value="one_time_service">One-time Service</option>
+                    <option value="managing_farm">Managed Farm</option>
+                    <option value="lease">Direct Lease Operations</option>
                   </select>
                 </div>
                 <div><label className="label">Total Amount (₹)</label><input className="input" type="number" value={form.total_amount} onChange={(e) => setForm({ ...form, total_amount: e.target.value })} required /></div>

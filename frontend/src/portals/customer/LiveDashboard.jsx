@@ -3,12 +3,12 @@ import { Link } from "react-router-dom";
 import PortalPage from "../../components/PortalPage";
 import { CUSTOMER_NAV } from "./_nav";
 import ProjectDetailsView from "./ProjectDetailsView";
-import { agreementsAPI, farmsAPI, investmentsAPI, projectsAPI, workOrdersAPI } from "../../config/api";
+import { agreementsAPI, farmsAPI, projectsAPI, workOrdersAPI } from "../../config/api";
 
 const badge = (status) => status?.replaceAll("_", " ") || "unknown";
 
 export default function LiveDashboard() {
-  const [data, setData] = useState({ farms: [], projects: [], work: [], agreements: [], investments: [] });
+  const [data, setData] = useState({ farms: [], projects: [], work: [], agreements: [] });
   const [selectedProject, setSelectedProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -17,13 +17,12 @@ export default function LiveDashboard() {
     setLoading(true);
     setError("");
     try {
-      const [farms, projects, work, agreements, investments] = await Promise.all([
-        farmsAPI.list(), projectsAPI.list(), workOrdersAPI.list(), agreementsAPI.list(), investmentsAPI.list(),
+      const [farms, projects, work, agreements] = await Promise.all([
+        farmsAPI.list(), projectsAPI.list(), workOrdersAPI.list(), agreementsAPI.list(),
       ]);
       setData({
         farms: farms.data?.items || [], projects: projects.data?.items || [],
         work: work.data?.items || [], agreements: agreements.data?.items || [],
-        investments: investments.data?.items || [],
       });
     } catch (e) {
       setError(e?.response?.data?.detail || e?.detail || "Could not load your live Farm360 data.");
@@ -32,12 +31,12 @@ export default function LiveDashboard() {
   useEffect(() => { refresh(); }, []);
 
   if (selectedProject) return <ProjectDetailsView project={selectedProject} onBack={() => setSelectedProject(null)} />;
-  return <PortalPage title="My Dashboard" subtitle="Your farms, projects, work and investment records" navItems={CUSTOMER_NAV}>
+  return <PortalPage title="My Dashboard" subtitle="Your farms, projects, verified work and service records" navItems={CUSTOMER_NAV}>
     <div className="space-y-6">
       {error && <div role="alert" className="card border-red-500/30 text-red-300">{error} <button className="underline ml-2" onClick={refresh}>Retry</button></div>}
       {loading ? <div className="card text-center text-[#8fac9a]">Loading your records…</div> : <>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {[["Farms", data.farms.length], ["Projects", data.projects.length], ["Open work", data.work.filter((w) => !["completed", "failed"].includes(w.status)).length], ["Investments", data.investments.length]].map(([title, value]) => <article key={title} className="card"><p className="text-xs text-[#8fac9a]">{title}</p><p className="text-2xl font-bold text-accent">{value}</p></article>)}
+          {[["Farms", data.farms.length], ["Projects", data.projects.length], ["Open work", data.work.filter((w) => !["completed", "failed"].includes(w.status)).length], ["Agreements", data.agreements.length]].map(([title, value]) => <article key={title} className="card"><p className="text-xs text-[#8fac9a]">{title}</p><p className="text-2xl font-bold text-accent">{value}</p></article>)}
         </div>
 
         <section className="space-y-3">

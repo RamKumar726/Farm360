@@ -1,7 +1,8 @@
 import uuid
 import secrets
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
@@ -15,6 +16,9 @@ from app.models.zones import Zone
 from app.auth.dependencies import get_current_user, require_roles
 from app.services.lead_service import transition_lead
 from app.services.notification_service import notify_new_lead
+from app.config import FEATURE_INVESTMENTS, FEATURE_LAND_SALES
+from app.models.quotes import QuoteItem, QuoteVersion
+from app.services.audit_service import record_audit
 
 router = APIRouter(prefix="/leads", tags=["leads"])
 
@@ -48,6 +52,12 @@ class RegisterCustomerRequest(BaseModel):
 
 class FeasibilityReport(BaseModel):
     report: str
+
+
+class AOQuotationInput(BaseModel):
+    services_needed: str = Field(min_length=2, max_length=1000)
+    price_to_complete: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
+    solution_summary: Optional[str] = Field(default=None, max_length=5000)
 
 
 class PublicConsultationCreate(BaseModel):
@@ -154,7 +164,11 @@ def list_leads(
     allowed_roles = {UserRole.founder, UserRole.zone_admin, UserRole.employee, UserRole.agri_officer, UserRole.customer}
     if current_user.role not in allowed_roles:
         raise HTTPException(403, "You cannot access leads")
-    query = db.query(Lead).filter(Lead.is_deleted == False, Lead.type != LeadType.investment_interest)
+    query = db.query(Lead).filter(Lead.is_deleted == False)
+    if not FEATURE_INVESTMENTS:
+        query = query.filter(Lead.type != LeadType.investment_interest)
+    if not FEATURE_LAND_SALES:
+        query = query.filter(Lead.type.notin_([LeadType.sell_land, LeadType.land_purchase_interest]))
     if current_user.role == UserRole.customer:
         query = query.filter(Lead.customer_id == current_user.id)
     elif current_user.role == UserRole.zone_admin:
@@ -242,6 +256,10 @@ def create_lead(
 ):
     if current_user.role not in {UserRole.founder, UserRole.zone_admin, UserRole.employee, UserRole.customer}:
         raise HTTPException(403, "You cannot create leads")
+    if body.type == LeadType.investment_interest and not FEATURE_INVESTMENTS:
+        raise HTTPException(404, "Investments are coming soon")
+    if body.type in {LeadType.sell_land, LeadType.land_purchase_interest} and not FEATURE_LAND_SALES:
+        raise HTTPException(404, "Land sales are coming soon")
     customer_id = current_user.id if current_user.role == UserRole.customer else body.customer_id
     if current_user.role == UserRole.customer and not db.query(Customer.id).filter(Customer.user_id == current_user.id).first():
         db.add(Customer(id=str(uuid.uuid4()), user_id=current_user.id,
@@ -563,7 +581,7 @@ def reset_lead_customer_password(
 @router.post("/{lead_id}/ao-quotation")
 def submit_ao_quotation(
     lead_id: str,
-    payload: dict,
+    payload: AOQuotationInput,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.agri_officer)),
 ):
@@ -574,11 +592,34 @@ def submit_ao_quotation(
     if lead.status != LeadStatus.decision_makers:
         raise HTTPException(status_code=400, detail="Quotation can be submitted only during Decision Makers stage")
     import json
-    lead.ao_quotation_doc = json.dumps(payload)
-    if payload.get("services_needed") is not None: lead.services_needed = json.dumps(payload.get("services_needed"))
-    if payload.get("price_to_complete") is not None: lead.price_to_complete = float(payload.get("price_to_complete"))
+    paise = int((payload.price_to_complete * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    previous = db.query(QuoteVersion).filter(QuoteVersion.lead_id == lead.id).order_by(QuoteVersion.version_number.desc()).first()
+    if previous and previous.status == "accepted":
+        raise HTTPException(409, "An accepted quote must be changed through an approved change order")
+    if previous and previous.status in {"approved", "sent"}:
+        previous.status = "superseded"
+        previous.superseded_at = datetime.now(timezone.utc)
+    quote = QuoteVersion(
+        id=str(uuid.uuid4()), lead_id=lead.id,
+        version_number=(previous.version_number if previous else 0) + 1,
+        status="draft", currency="INR", subtotal_paise=paise,
+        discount_paise=0, tax_paise=0, total_paise=paise,
+        inclusions=payload.solution_summary, created_by=current_user.id,
+    )
+    db.add(quote)
+    db.flush()
+    db.add(QuoteItem(
+        id=str(uuid.uuid4()), quote_version_id=quote.id, position=1,
+        description=payload.services_needed, quantity_milli=1000, unit="service package",
+        unit_price_paise=paise, line_total_paise=paise,
+    ))
+    lead.ao_quotation_doc = json.dumps(payload.model_dump(mode="json"))
+    lead.services_needed = payload.services_needed
+    lead.price_to_complete = float(payload.price_to_complete)
     lead.assigned_ao_id = current_user.id if current_user.role == UserRole.agri_officer else lead.assigned_ao_id
     lead.status = LeadStatus.proposal_price
+    record_audit(db, action="quote.created", entity_type="quote", entity_id=quote.id,
+                 actor_user_id=current_user.id, changes={"lead_id": lead.id, "version": quote.version_number, "total_paise": paise})
     db.commit()
     db.refresh(lead)
     return success(data=lead_to_dict(lead), message="Quotation and solution document submitted by AO")
@@ -616,15 +657,31 @@ def review_and_send_quote(
     _authorize_lead(lead, current_user, allow_unassigned=True)
     if lead.status != LeadStatus.proposal_price:
         raise HTTPException(status_code=400, detail="Quote review is available only during Proposal/Price stage")
+    quote = db.query(QuoteVersion).filter(QuoteVersion.lead_id == lead.id).order_by(QuoteVersion.version_number.desc()).with_for_update().first()
+    if not quote:
+        raise HTTPException(400, "The Agriculture Officer must submit an itemized quotation first")
     if action == "review":
+        if quote.status != "draft":
+            raise HTTPException(409, "Only a draft quote can be reviewed")
+        if quote.created_by == current_user.id:
+            raise HTTPException(403, "The quote creator cannot approve their own quote")
         lead.is_reviewed_by_employee = True
+        quote.status = "approved"
+        quote.approved_by = current_user.id
+        quote.approved_at = datetime.now(timezone.utc)
+        record_audit(db, action="quote.approved", entity_type="quote", entity_id=quote.id, actor_user_id=current_user.id)
     elif action == "send":
         if not lead.is_reviewed_by_employee:
             raise HTTPException(status_code=400, detail="Review the Agriculture Officer quote before sending it to the customer")
-        if not lead.ao_quotation_doc:
-            raise HTTPException(status_code=400, detail="The Agriculture Officer must submit a quotation first")
+        if quote.status != "approved":
+            raise HTTPException(status_code=400, detail="Approve the latest quote version before sending it")
+        if not lead.customer_id:
+            raise HTTPException(status_code=400, detail="Register or link the customer before sending the quote")
         lead.is_reviewed_by_employee = True
         lead.sent_to_client = True
+        quote.status = "sent"
+        quote.sent_at = datetime.now(timezone.utc)
+        record_audit(db, action="quote.sent", entity_type="quote", entity_id=quote.id, actor_user_id=current_user.id)
         if lead.final_amount is None and lead.price_to_complete is not None:
             lead.final_amount = lead.price_to_complete
     else:

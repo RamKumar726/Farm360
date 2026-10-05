@@ -22,6 +22,16 @@ services:
         generateValue: true
       - key: FRONTEND_URL
         value: https://farm360.netlify.app  # Replace with your final Netlify URL
+      - key: CORS_ORIGINS
+        value: https://farm360.netlify.app  # Replace with the exact approved frontend origin(s)
+      - key: ENVIRONMENT
+        value: production
+      - key: PAYMENT_MODE
+        value: sandbox
+      - key: FEATURE_INVESTMENTS
+        value: "false"
+      - key: FEATURE_LAND_SALES
+        value: "false"
       - key: PYTHON_VERSION
         value: 3.11.9
 

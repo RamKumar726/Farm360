@@ -9,7 +9,9 @@ from app.models.projects import Project, ProjectType, ProjectStatus, ProjectAppr
 from app.models.prototypes import Prototype
 from app.models.users import User, UserRole
 from app.auth.dependencies import get_current_user, require_roles
+from app.auth.scope import get_scoped_project, scope_projects
 from app.services.notification_service import notify_investment_posted
+from app.config import FEATURE_INVESTMENTS, FEATURE_LAND_SALES
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -89,7 +91,7 @@ def list_projects(
     current_user: User = Depends(get_current_user),
 ):
     query = db.query(Project)
-    if current_user.role == UserRole.customer:
+    if current_user.role == UserRole.customer and FEATURE_INVESTMENTS:
         from sqlalchemy import or_
         from app.models.customers import Customer
         from app.models.investments import Investment
@@ -100,6 +102,8 @@ def list_projects(
         else:
             investment_owned = Project.investments.any(Investment.customer_id == customer.id) if customer else Project.id == ""
             query = query.filter(or_(Project.customer_id == current_user.id, investment_owned))
+    else:
+        query = scope_projects(query, current_user, db)
 
     if status:
         query = query.filter(Project.status == status)
@@ -117,6 +121,10 @@ def create_project(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.founder, UserRole.zone_admin, UserRole.employee)),
 ):
+    if body.type in {ProjectType.project_investment, ProjectType.agricultural_investment, ProjectType.joint_project} and not FEATURE_INVESTMENTS:
+        raise HTTPException(404, "Investment projects are not available")
+    if body.type == ProjectType.land_sale and not FEATURE_LAND_SALES:
+        raise HTTPException(404, "Land sale projects are not available")
     # Founder direct post is approved, branch/zone admin post requires founder approval
     app_status = ProjectApprovalStatus.approved if current_user.role == UserRole.founder else ProjectApprovalStatus.pending_approval
 
@@ -261,10 +269,13 @@ def apply_prototype(
 
 @router.get("/{proj_id}")
 def get_project(proj_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    p = db.query(Project).filter(Project.id == proj_id).first()
+    if current_user.role == UserRole.customer and FEATURE_INVESTMENTS:
+        p = db.query(Project).filter(Project.id == proj_id).first()
+    else:
+        p = get_scoped_project(db, proj_id, current_user)
     if not p:
         raise HTTPException(404, "Project not found")
-    if current_user.role == UserRole.customer and p.customer_id != current_user.id and not (p.approval_status == ProjectApprovalStatus.approved and p.status == ProjectStatus.open):
+    if current_user.role == UserRole.customer and FEATURE_INVESTMENTS and p.customer_id != current_user.id and not (p.approval_status == ProjectApprovalStatus.approved and p.status == ProjectStatus.open):
         from app.models.customers import Customer
         customer = db.query(Customer).filter(Customer.user_id == current_user.id).first()
         owns_investment = bool(customer and any(inv.customer_id == customer.id for inv in p.investments))

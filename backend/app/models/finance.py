@@ -1,5 +1,5 @@
 import enum
-from sqlalchemy import Column, String, DateTime, ForeignKey, Enum as SAEnum, Float, Text, Integer
+from sqlalchemy import Column, String, DateTime, ForeignKey, Enum as SAEnum, Float, Text, Integer, Boolean
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -27,13 +27,33 @@ class Payment(Base):
     lead_id = Column(String, ForeignKey("leads.id"), nullable=True)
     investment_id = Column(String, ForeignKey("investments.id"), nullable=True)
     work_order_id = Column(String, ForeignKey("work_orders.id"), nullable=True)
+    quote_version_id = Column(String, ForeignKey("quote_versions.id"), nullable=True)
+    invoice_id = Column(String, ForeignKey("invoices.id"), nullable=True)
     amount_paise = Column(Integer, nullable=False)
+    currency = Column(String(3), nullable=False, default="INR")
+    refunded_amount_paise = Column(Integer, nullable=False, default=0)
     status = Column(SAEnum(PaymentStatus, name="gatewaypaymentstatus"), nullable=False, default=PaymentStatus.created)
     gateway_order_id = Column(String, unique=True, nullable=False)
     gateway_payment_id = Column(String, unique=True, nullable=True)
     gateway_signature = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     paid_at = Column(DateTime(timezone=True), nullable=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+
+
+class PaymentWebhookEvent(Base):
+    __tablename__ = "payment_webhook_events"
+
+    id = Column(String, primary_key=True)
+    event_type = Column(String, nullable=False, index=True)
+    payload_sha256 = Column(String, nullable=False)
+    signature_valid = Column(Boolean, nullable=False, default=False)
+    processed = Column(Boolean, nullable=False, default=False)
+    processing_error = Column(Text, nullable=True)
+    gateway_order_id = Column(String, nullable=True, index=True)
+    gateway_payment_id = Column(String, nullable=True, index=True)
+    received_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    processed_at = Column(DateTime(timezone=True), nullable=True)
 
 
 class ExpenseStatus(str, enum.Enum):

@@ -5,7 +5,6 @@ import { apiFetch, usersAPI, projectsAPI, leadsAPI } from "../../config/api";
 import { Plus, ArrowRight, UserCheck, Send, CheckCircle2, ShieldCheck, X, ClipboardList, KeyRound } from "lucide-react";
 import toast from "react-hot-toast";
 import StatusBadge from "../../components/StatusBadge";
-import InvestmentPipeline from "../../components/InvestmentPipeline";
 
 const SERVICE_STAGES = [
   "prospecting", "qualification", "need_analysis", "value_proposition",
@@ -157,7 +156,6 @@ export default function EmployeeLeadPipeline() {
 
   return (
     <PortalPage title="Lead & Opportunity Pipeline" subtitle="11-Stage Service & Lease Lead Lifecycle Management" navItems={EMPLOYEE_NAV}>
-      <InvestmentPipeline />
       <div className="space-y-6">
         <button className="btn-primary flex items-center gap-2 font-bold" onClick={() => setShowForm(!showForm)}><Plus size={16} /> New Lead / Opportunity</button>
 
@@ -171,8 +169,6 @@ export default function EmployeeLeadPipeline() {
                   <option value="one_time_service">One-Time Service (Borewell/Fencing/Cleaning)</option>
                   <option value="farm_management">Farm Management (Managed Farm)</option>
                   <option value="farm_lease">Farm Lease (In-House / Lease Arrangement)</option>
-                  <option value="sell_land">Sell My Land</option>
-                  <option value="investment_interest">Investment Interest</option>
                 </select>
               </div>
               <div>

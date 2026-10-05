@@ -2,7 +2,7 @@ import uuid
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Cookie
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from app.database import get_db
 from app.models.users import User, UserRole
@@ -10,19 +10,20 @@ from app.models.customers import Customer
 from app.models.leads import Lead
 from app.auth.jwt import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 from app.auth.dependencies import get_current_user
+from app.config import COOKIE_SECURE, COOKIE_SAMESITE, JWT_EXPIRE_MINUTES, JWT_REFRESH_EXPIRE_DAYS
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(min_length=8, max_length=72)
 
 
 class RegisterRequest(BaseModel):
     name: str
     email: EmailStr
-    password: str
+    password: str = Field(min_length=12, max_length=72)
     phone: Optional[str] = None
     role: UserRole = UserRole.customer
 
@@ -45,8 +46,8 @@ def login(body: LoginRequest, response: Response, db: Session = Depends(get_db))
     refresh_token = create_refresh_token({"sub": user.id})
 
     # Set cookie with samesite=none and secure=True for cross-origin compatibility
-    response.set_cookie("access_token", access_token, httponly=True, samesite="none", secure=True, max_age=3600)
-    response.set_cookie("refresh_token", refresh_token, httponly=True, samesite="none", secure=True, max_age=604800)
+    response.set_cookie("access_token", access_token, httponly=True, samesite=COOKIE_SAMESITE, secure=COOKIE_SECURE, max_age=JWT_EXPIRE_MINUTES * 60)
+    response.set_cookie("refresh_token", refresh_token, httponly=True, samesite=COOKIE_SAMESITE, secure=COOKIE_SECURE, max_age=JWT_REFRESH_EXPIRE_DAYS * 86400)
 
     return success(
         data={
@@ -54,7 +55,6 @@ def login(body: LoginRequest, response: Response, db: Session = Depends(get_db))
             "name": user.name,
             "email": user.email,
             "role": user.role.value,
-            "access_token": access_token,
         },
         message="Login successful",
     )
@@ -97,14 +97,14 @@ def refresh_token(response: Response, refresh_token: Optional[str] = Cookie(defa
         raise HTTPException(status_code=401, detail="User not found")
 
     new_access = create_access_token({"sub": user.id, "role": user.role.value})
-    response.set_cookie("access_token", new_access, httponly=True, samesite="none", secure=True, max_age=3600)
+    response.set_cookie("access_token", new_access, httponly=True, samesite=COOKIE_SAMESITE, secure=COOKIE_SECURE, max_age=JWT_EXPIRE_MINUTES * 60)
     return success(message="Token refreshed")
 
 
 @router.post("/logout")
 def logout(response: Response):
-    response.delete_cookie("access_token")
-    response.delete_cookie("refresh_token")
+    response.delete_cookie("access_token", samesite=COOKIE_SAMESITE, secure=COOKIE_SECURE)
+    response.delete_cookie("refresh_token", samesite=COOKIE_SAMESITE, secure=COOKIE_SECURE)
     return success(message="Logged out")
 
 

@@ -22,10 +22,13 @@ from app.models.attendance import Attendance, AttendanceStatus
 from app.models.real_estate_users import RealEstateUser, RegistrationStatus
 from app.models.issues import Issue, IssueStatus, IssueSeverity
 from app.models.harvests import Harvest, HarvestStatus
-from app.models.finance import Payment, PaymentPurpose, PaymentStatus as GatewayPaymentStatus, ProjectExpense, ExpenseStatus, LandownerSettlement, SettlementStatus
+from app.models.finance import Payment, PaymentPurpose, PaymentStatus as GatewayPaymentStatus, PaymentWebhookEvent, ProjectExpense, ExpenseStatus, LandownerSettlement, SettlementStatus
 from app.models.outsourcing_contracts import OutsourcingContract, OutsourcingContractStatus
 from app.models.services import Service
 from app.models.proofs import Proof
+from app.models.quotes import QuoteVersion, QuoteItem, QuoteAcceptance
+from app.models.audit import AuditEvent
+from app.models.billing import Invoice, InvoiceLine, PaymentAllocation
 
 __all__ = [
     "User", "UserRole",
@@ -51,8 +54,10 @@ __all__ = [
     "RealEstateUser", "RegistrationStatus",
     "Issue", "IssueStatus", "IssueSeverity",
     "Harvest", "HarvestStatus",
-    "Payment", "PaymentPurpose", "GatewayPaymentStatus", "ProjectExpense", "ExpenseStatus", "LandownerSettlement", "SettlementStatus",
+    "Payment", "PaymentPurpose", "GatewayPaymentStatus", "PaymentWebhookEvent", "ProjectExpense", "ExpenseStatus", "LandownerSettlement", "SettlementStatus",
     "OutsourcingContract", "OutsourcingContractStatus",
     "Service",
     "Proof",
+    "QuoteVersion", "QuoteItem", "QuoteAcceptance", "AuditEvent",
+    "Invoice", "InvoiceLine", "PaymentAllocation",
 ]

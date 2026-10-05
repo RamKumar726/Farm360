@@ -5,6 +5,8 @@ import { Leaf } from "lucide-react";
 import useAppStore from "./store/useAppStore";
 import { authAPI } from "./config/api";
 import { getDefaultRoute, canAccessPath } from "./config/roleRoutes";
+import ComingSoonPage from "./components/ComingSoonPage";
+import { CUSTOMER_NAV } from "./portals/customer/_nav";
 
 // Public & Auth pages
 import LandingPage from "./pages/LandingPage";
@@ -37,8 +39,6 @@ import ZoneAdminEscalations from "./portals/zone-admin/Escalations";
 import EmployeeDashboard from "./portals/employee/Dashboard";
 import EmployeeLeadPipeline from "./portals/employee/LeadPipeline";
 import EmployeeWorkQueue from "./portals/employee/WorkQueue";
-import EmployeeLandLeads from "./portals/employee/LandLeads";
-import EmployeeInvestmentLeads from "./portals/employee/InvestmentLeads";
 import EmployeePartnerAssignment from "./portals/employee/PartnerAssignment";
 import EmployeeFollowUp from "./portals/employee/FollowUp";
 
@@ -59,14 +59,11 @@ import FarmEmpHarvest from "./portals/farm-employee/Harvest";
 import FarmEmpIncidentReport from "./portals/farm-employee/IncidentReport";
 
 // Customer portal
-import CustomerMarketplace from "./portals/customer/Marketplace";
 import CustomerDashboard from "./portals/customer/Dashboard";
 import CustomerMyFarm from "./portals/customer/MyFarm";
 import CustomerAgreements from "./portals/customer/Agreements";
 import CustomerWorkDetails from "./portals/customer/WorkDetails";
 import CustomerCropHealth from "./portals/customer/CropHealth";
-import CustomerInvestments from "./portals/customer/Investments";
-import CustomerLandSale from "./portals/customer/LandSale";
 import CustomerPayments from "./portals/customer/Payments";
 import CustomerServices from "./portals/customer/CustomerServices";
 import WorkPartnerDashboard from "./portals/work-partner/Dashboard";
@@ -157,8 +154,8 @@ export default function App() {
           <Route path="/employee/dashboard" element={<AuthGuard><EmployeeDashboard /></AuthGuard>} />
           <Route path="/employee/leads" element={<AuthGuard><EmployeeLeadPipeline /></AuthGuard>} />
           <Route path="/employee/work-queue" element={<AuthGuard><EmployeeWorkQueue /></AuthGuard>} />
-          <Route path="/employee/land-leads" element={<AuthGuard><EmployeeLandLeads /></AuthGuard>} />
-          <Route path="/employee/investment-leads" element={<AuthGuard><EmployeeInvestmentLeads /></AuthGuard>} />
+          <Route path="/employee/land-leads" element={<AuthGuard><ComingSoonPage title="Land Sales" navItems={EMPLOYEE_NAV} /></AuthGuard>} />
+          <Route path="/employee/investment-leads" element={<AuthGuard><ComingSoonPage title="Investments" navItems={EMPLOYEE_NAV} /></AuthGuard>} />
           <Route path="/employee/partners" element={<AuthGuard><EmployeePartnerAssignment /></AuthGuard>} />
           <Route path="/employee/follow-up" element={<AuthGuard><EmployeeFollowUp /></AuthGuard>} />
 
@@ -179,14 +176,14 @@ export default function App() {
           <Route path="/farm-employee/incident" element={<AuthGuard><FarmEmpIncidentReport /></AuthGuard>} />
 
           {/* Customer */}
-          <Route path="/customer/marketplace" element={<AuthGuard><CustomerMarketplace /></AuthGuard>} />
+          <Route path="/customer/marketplace" element={<AuthGuard><CustomerServices /></AuthGuard>} />
           <Route path="/customer/dashboard" element={<AuthGuard><CustomerDashboard /></AuthGuard>} />
           <Route path="/customer/my-farm" element={<AuthGuard><CustomerMyFarm /></AuthGuard>} />
           <Route path="/customer/agreements" element={<AuthGuard><CustomerAgreements /></AuthGuard>} />
           <Route path="/customer/work-details" element={<AuthGuard><CustomerWorkDetails /></AuthGuard>} />
           <Route path="/customer/crop-health" element={<AuthGuard><CustomerCropHealth /></AuthGuard>} />
-          <Route path="/customer/investments" element={<AuthGuard><CustomerInvestments /></AuthGuard>} />
-          <Route path="/customer/land-sale" element={<AuthGuard><CustomerLandSale /></AuthGuard>} />
+          <Route path="/customer/investments" element={<AuthGuard><ComingSoonPage title="Investments" navItems={CUSTOMER_NAV} /></AuthGuard>} />
+          <Route path="/customer/land-sale" element={<AuthGuard><ComingSoonPage title="Land Sale" navItems={CUSTOMER_NAV} /></AuthGuard>} />
           <Route path="/customer/payments" element={<AuthGuard><CustomerPayments /></AuthGuard>} />
           <Route path="/customer/services" element={<AuthGuard><CustomerServices /></AuthGuard>} />
           <Route path="/work-partner/dashboard" element={<AuthGuard><WorkPartnerDashboard /></AuthGuard>} />

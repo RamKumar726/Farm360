@@ -28,3 +28,8 @@ def verify_payment_signature(order_id: str, payment_id: str, signature: str) -> 
         return True
     except Exception:
         return False
+
+
+def fetch_payment(payment_id: str) -> dict:
+    """Fetch the provider's authoritative payment state."""
+    return get_client().payment.fetch(payment_id)

@@ -8,8 +8,28 @@ from app.database import get_db
 from app.models.agreements import Agreement, AgreementType, AgreementStatus
 from app.models.users import User, UserRole
 from app.auth.dependencies import get_current_user, require_roles
+from app.auth.scope import scope_projects
 
 router = APIRouter(prefix="/agreements", tags=["agreements"])
+
+
+def _scope_agreements(query, user: User, db: Session):
+    if user.role == UserRole.founder:
+        return query
+    if user.role == UserRole.customer:
+        from app.models.customers import Customer
+        customer = db.query(Customer).filter(Customer.user_id == user.id).first()
+        return query.filter(Agreement.customer_id == (customer.id if customer else ""))
+    if user.role == UserRole.zone_admin:
+        from app.models.customers import Customer
+        return query.join(Customer, Agreement.customer_id == Customer.id).filter(
+            (Customer.branch_id == user.branch_id) if user.branch_id else (Customer.zone_id == user.zone_id)
+        )
+    if user.role in {UserRole.employee, UserRole.agri_officer, UserRole.farm_employee}:
+        from app.models.projects import Project
+        project_ids = scope_projects(db.query(Project.id), user, db)
+        return query.filter(Agreement.project_id.in_(project_ids))
+    return query.filter(False)
 
 
 def success(data=None, message=""):
@@ -44,15 +64,9 @@ def list_agreements(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    query = db.query(Agreement)
-    if current_user.role == UserRole.customer:
-        from app.models.customers import Customer
-        c = db.query(Customer).filter(Customer.user_id == current_user.id).first()
-        if not c:
-            return success(data={"total": 0, "items": []})
-        query = query.filter(Agreement.customer_id == c.id)
-    elif current_user.role not in {UserRole.founder, UserRole.zone_admin, UserRole.employee, UserRole.agri_officer}:
+    if current_user.role not in {UserRole.founder, UserRole.zone_admin, UserRole.employee, UserRole.agri_officer, UserRole.customer}:
         raise HTTPException(403, "You cannot access agreements")
+    query = _scope_agreements(db.query(Agreement), current_user, db)
     total = query.count()
     items = query.offset((page - 1) * page_size).limit(page_size).all()
     return success(data={"total": total, "items": [ag_to_dict(a) for a in items]})
@@ -73,14 +87,9 @@ def create_agreement(
 
 @router.get("/{ag_id}")
 def get_agreement(ag_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    ag = db.query(Agreement).filter(Agreement.id == ag_id).first()
+    ag = _scope_agreements(db.query(Agreement).filter(Agreement.id == ag_id), current_user, db).first()
     if not ag:
         raise HTTPException(404, "Agreement not found")
-    if current_user.role == UserRole.customer:
-        from app.models.customers import Customer
-        customer = db.query(Customer).filter(Customer.user_id == current_user.id).first()
-        if not customer or ag.customer_id != customer.id:
-            raise HTTPException(404, "Agreement not found")
-    elif current_user.role not in {UserRole.founder, UserRole.zone_admin, UserRole.employee, UserRole.agri_officer}:
+    if current_user.role not in {UserRole.founder, UserRole.zone_admin, UserRole.employee, UserRole.agri_officer, UserRole.customer}:
         raise HTTPException(403, "You cannot access agreements")
     return success(data=ag_to_dict(ag))

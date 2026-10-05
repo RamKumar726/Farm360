@@ -8,6 +8,7 @@ from app.models.farms import Farm
 from app.models.customers import Customer
 from app.models.users import User, UserRole
 from app.auth.dependencies import get_current_user, require_roles
+from app.auth.scope import get_scoped_farm, scope_farms
 
 router = APIRouter(prefix="/farms", tags=["farms"])
 
@@ -43,13 +44,7 @@ def list_farms(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    query = db.query(Farm)
-    if current_user.role == UserRole.customer:
-        customer = db.query(Customer).filter(Customer.user_id == current_user.id).first()
-        if customer:
-            query = query.filter(Farm.customer_id == customer.id)
-    elif current_user.role == UserRole.zone_admin:
-        query = query.join(Customer).filter(Customer.branch_id == current_user.branch_id)
+    query = scope_farms(db.query(Farm), current_user, db)
     total = query.count()
     items = query.offset((page - 1) * page_size).limit(page_size).all()
     return success(data={"total": total, "items": [farm_to_dict(f) for f in items]})
@@ -69,15 +64,14 @@ def create_farm(
 
 
 @router.get("/{farm_id}")
-def get_farm(farm_id: str, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    farm = db.query(Farm).filter(Farm.id == farm_id).first()
-    if not farm:
-        raise HTTPException(404, "Farm not found")
+def get_farm(farm_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    farm = get_scoped_farm(db, farm_id, current_user)
     return success(data=farm_to_dict(farm))
 
 
 @router.get("/{farm_id}/crop-health")
-def crop_health(farm_id: str, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def crop_health(farm_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    get_scoped_farm(db, farm_id, current_user)
     from app.models.crop_cycles import CropCycle
     from app.models.visits import Visit, VisitStatus
     cycles = db.query(CropCycle).filter(CropCycle.farm_id == farm_id).all()
@@ -91,14 +85,16 @@ def crop_health(farm_id: str, db: Session = Depends(get_db), _: User = Depends(g
 
 
 @router.get("/{farm_id}/agreements")
-def farm_agreements(farm_id: str, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def farm_agreements(farm_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    get_scoped_farm(db, farm_id, current_user)
     from app.models.agreements import Agreement
     items = db.query(Agreement).filter(Agreement.farm_id == farm_id).all()
     return success(data={"items": [{"id": a.id, "type": a.type.value, "status": a.status.value, "amount": a.amount} for a in items]})
 
 
 @router.get("/{farm_id}/work-orders")
-def farm_work_orders(farm_id: str, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def farm_work_orders(farm_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    get_scoped_farm(db, farm_id, current_user)
     from app.models.work_orders import WorkOrder
     items = db.query(WorkOrder).filter(WorkOrder.farm_id == farm_id, WorkOrder.is_deleted == False).all()
     return success(data={"items": [{"id": w.id, "type": w.type.value, "status": w.status.value} for w in items]})
