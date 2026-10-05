@@ -26,6 +26,12 @@ services:
         value: https://farm360.netlify.app  # Replace with the exact approved frontend origin(s)
       - key: ENVIRONMENT
         value: production
+      - key: AUTO_CREATE_SCHEMA
+        value: "false"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAMESITE
+        value: none
       - key: PAYMENT_MODE
         value: sandbox
       - key: FEATURE_INVESTMENTS

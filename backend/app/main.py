@@ -7,10 +7,12 @@ from slowapi.errors import RateLimitExceeded
 from app.config import (
     CORS_ORIGINS, FEATURE_INVESTMENTS, FEATURE_LAND_SALES, PAYMENT_MODE,
     ENVIRONMENT, JWT_SECRET, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET,
+    AUTO_CREATE_SCHEMA, DATABASE_URL,
 )
 
 # Import all models (required for Alembic autogenerate and SQLAlchemy relationship resolution)
 import app.models  # noqa: F401
+from app.database import Base, engine
 
 # Import routers
 from app.routers import (
@@ -32,6 +34,8 @@ app = FastAPI(
 
 if ENVIRONMENT == "production" and JWT_SECRET == "change-me-in-production":
     raise RuntimeError("JWT_SECRET must be configured in production")
+if ENVIRONMENT == "production" and DATABASE_URL.startswith("sqlite"):
+    raise RuntimeError("Production requires an explicit PostgreSQL DATABASE_URL")
 if PAYMENT_MODE == "live" and not all((RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET)):
     raise RuntimeError("Live payments require Razorpay key id, key secret and webhook secret")
 
@@ -46,6 +50,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+def initialize_development_database():
+    """Create missing local tables; production remains Alembic-only."""
+    if ENVIRONMENT != "production" and AUTO_CREATE_SCHEMA:
+        Base.metadata.create_all(bind=engine)
 
 # Register all routers
 app.include_router(auth.router)

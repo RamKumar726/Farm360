@@ -1,9 +1,13 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/farm360")
+# A fresh clone should run without a separate database server. Production must
+# provide DATABASE_URL explicitly and should use PostgreSQL.
+_DEV_DATABASE = (Path(__file__).resolve().parents[1] / "farm360-dev.db").as_posix()
+DATABASE_URL: str = os.getenv("DATABASE_URL", f"sqlite:///{_DEV_DATABASE}")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 JWT_SECRET: str = os.getenv("JWT_SECRET", "change-me-in-production")
@@ -45,3 +49,4 @@ def env_flag(name: str, default: bool = False) -> bool:
 # their legal, accounting and operational policies are separately approved.
 FEATURE_INVESTMENTS: bool = env_flag("FEATURE_INVESTMENTS", False)
 FEATURE_LAND_SALES: bool = env_flag("FEATURE_LAND_SALES", False)
+AUTO_CREATE_SCHEMA: bool = env_flag("AUTO_CREATE_SCHEMA", ENVIRONMENT != "production")

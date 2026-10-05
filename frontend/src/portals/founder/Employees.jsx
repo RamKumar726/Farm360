@@ -198,7 +198,9 @@ export default function FounderEmployees() {
                     <input
                       className="input"
                       type="password"
-                      placeholder="••••••••"
+                      placeholder="Minimum 12 characters"
+                      minLength={12}
+                      maxLength={72}
                       value={form.password}
                       onChange={(e) => setForm({ ...form, password: e.target.value })}
                       required
