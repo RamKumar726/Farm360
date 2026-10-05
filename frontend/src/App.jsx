@@ -7,6 +7,7 @@ import { authAPI } from "./config/api";
 import { getDefaultRoute, canAccessPath } from "./config/roleRoutes";
 import ComingSoonPage from "./components/ComingSoonPage";
 import { CUSTOMER_NAV } from "./portals/customer/_nav";
+import { EMPLOYEE_NAV } from "./portals/employee/_nav";
 
 // Public & Auth pages
 import LandingPage from "./pages/LandingPage";
